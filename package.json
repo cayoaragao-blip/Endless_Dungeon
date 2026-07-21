@@ -16,8 +16,6 @@
     }
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
     "electron": "^43.1.1",

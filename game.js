@@ -673,20 +673,20 @@ function chooseEnemyType(){
     }
   }
  
-//  function addParticles(x, y, color, count) {
-//    if (state.particles.length > 150) return;
-//    for (let i = 0; i < count; i += 1) {
-//      state.particles.push({
-//        x,
-//        y,
-//        vx: (Math.random() - 0.5) * 360,
-//       vy: -80 - Math.random() * 240,
-//        r: 2 + Math.random() * 3,
-//        color,
-//        life: 0.45 + Math.random() * 0.5
-//      });
-//    }
-//  }
+  function addParticles(x, y, color, count) {
+    if (state.particles.length > 150) return;
+    for (let i = 0; i < count; i += 1) {
+      state.particles.push({
+        x,
+        y,
+        vx: (Math.random() - 0.5) * 360,
+       vy: -80 - Math.random() * 240,
+        r: 2 + Math.random() * 3,
+        color,
+        life: 0.45 + Math.random() * 0.5
+      });
+    }
+  }
  
   function removeAt(array, i) {
     array[i] = array[array.length - 1];
