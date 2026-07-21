@@ -18,7 +18,7 @@ O jogador enfrenta monstros que ficam cada vez mais fortes com o passar do tempo
 - Weasel Fisherman
     - Autor: Foozle
     - Fonte: https://foozlecc.itch.io/critters-enemy-pack-3
-    - Licença: CC0 1.0
+    - Licença: Creative Commons Zero v1.0 Universal
 
 
 ## Como rodar
