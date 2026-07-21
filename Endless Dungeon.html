@@ -1,0 +1,306 @@
+﻿<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Endless Dungeon</title>
+    <style>
+:root {
+  --bg: #111316;
+  --ink: #f4efe6;
+  --muted: #b9b2a7;
+  --panel: rgba(18, 20, 23, 0.92);
+  --line: rgba(255, 255, 255, 0.18);
+  --red: #e84242;
+  --gold: #e4b15d;
+  --green: #72c66f;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Segoe UI", Arial, sans-serif;
+}
+
+button {
+  min-width: 96px;
+  height: 40px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 6px;
+  background: #2d3844;
+  color: var(--ink);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button:hover,
+button:focus-visible {
+  background: #3e4c5b;
+  outline: none;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.game-shell {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  background: #0d1013;
+}
+
+#game {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  image-rendering: pixelated;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.52);
+}
+
+.hidden {
+  display: none;
+}
+
+.title-panel,
+.panel {
+  width: min(680px, 94vw);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
+}
+
+.title-panel {
+  padding: 32px;
+  text-align: center;
+}
+
+.title-panel h1,
+.panel h1 {
+  margin: 0;
+  font-size: 42px;
+  letter-spacing: 0;
+}
+
+.title-panel p,
+.panel p {
+  margin: 12px 0 24px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.panel {
+  padding: 20px;
+}
+
+.panel-header,
+.panel-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.panel-header h1 {
+  font-size: 28px;
+}
+
+.panel-header p {
+  margin: 6px 0 0;
+}
+
+#closeInventory {
+  min-width: 42px;
+  width: 42px;
+  padding: 0;
+}
+
+.inventory-grid {
+  display: grid;
+  gap: 12px;
+  margin: 18px 0;
+}
+
+.item-slot,
+.upgrade-box {
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  align-items: center;
+  gap: 14px;
+  min-height: 76px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.item-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  display: inline-block;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.potion{
+    background-image: url("src/assets/potion_icon.png");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}
+
+.bow{
+    background-image: url("src/assets/bow_icon.png");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}
+
+.armor{
+    background-image: url("src/assets/armor_icon.png");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+}
+
+small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+}
+
+.panel-footer {
+  min-height: 28px;
+  color: var(--gold);
+  font-weight: 700;
+  display: flex;
+  justify-content: center;
+}
+
+@media (max-width: 620px) {
+  .title-panel h1 {
+    font-size: 34px;
+  }
+
+  .item-slot,
+  .upgrade-box {
+    grid-template-columns: 48px 1fr;
+  }
+
+  .item-slot button,
+  .upgrade-box button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+}
+
+</style>
+  </head>
+  <body>
+    <main class="game-shell">
+      <canvas id="game" width="1280" height="720" aria-label="Endless Dungeon"></canvas>
+
+      <section id="inventory" class="overlay hidden" aria-label="Inventario">
+        <div class="panel">
+          <header class="panel-header">
+            <div>
+              <h1>Inventario</h1>
+              <p>Orbes vermelhos fortalecem seu arco, armadura e podem ser usados para comprar frascos de vida.</p>
+            </div>
+            <button id="closeInventory" type="button" title="Fechar">X</button>
+          </header>
+
+          <div class="inventory-grid">
+            <article class="item-slot selected" data-action="potion">
+
+              <span class="item-icon potion"></span>
+
+              <div>
+                  <strong>Frasco de vida</strong>
+                  <small id="potionCount">
+                      0 disponiveis
+                  </small>
+              </div>
+
+              <div class="potion-buttons">
+
+                  <button id="usePotion"
+                          type="button">
+                      Usar
+                  </button>
+
+                  <button id="buyPotion"
+                          type="button">
+                      Comprar (20)
+                  </button>
+
+              </div>
+
+            </article>
+
+            <article class="upgrade-box">
+              <span class="item-icon bow"></span>
+              <div>
+                <strong>Arco</strong>
+                <small id="bowLevel">Nivel 1</small>
+              </div>
+              <button id="upgradeBow" type="button">Aprimorar</button>
+            </article>
+
+            <article class="upgrade-box">
+              <span class="item-icon armor"></span>
+              <div>
+                <strong>Armadura</strong>
+                <small id="armorLevel">Nivel 1</small>
+              </div>
+              <button id="upgradeArmor" type="button">Aprimorar</button>
+            </article>
+          </div>
+
+          <footer class="panel-footer">
+            <span id="orbCount">0 orbes</span>
+          </footer>
+        </div>
+      </section>
+
+      <section id="startScreen" class="overlay">
+        <div class="title-panel">
+          <h1>Endless Dungeon</h1>
+          <p>Plataforma RPG em arena única. Derrote monstros, colete orbes e sobreviva ao crescimento da horda.</p>
+          <button id="startGame" type="button">Jogar</button>
+        </div>
+      </section>
+
+      <section id="gameOver" class="overlay hidden">
+        <div class="title-panel">
+          <h1>Fim da jornada</h1>
+          <p id="finalStats"></p>
+          <button id="restartGame" type="button">Recomecar</button>
+        </div>
+      </section>
+    </main>
+
+    <script src="game.js"></script>
+  
+  </body>
+</html>
+

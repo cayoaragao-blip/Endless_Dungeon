@@ -1,0 +1,28 @@
+# Node
+node_modules/
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Electron
+dist/win-unpacked/
+dist/*.blockmap
+
+# Git
+.git/
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Logs
+npm-debug.log
+
+# Smoke_test
+tools/smoke_test.cjs
+
+# Features
+features/resize.py
+features/ico_maker.py
