@@ -8,7 +8,7 @@
     background: new Image()
   };
  
-  sprites.player.src = "src/assets/GandalfHardcore Archer/GandalfHardcore Archer sheet.png";
+  sprites.player.src = "src/assets/GandalfHardcore Archer/standard_skin/";
   sprites.arrow.src = "src/assets/GandalfHardcore Archer/arrow.png";
   sprites.background.src = "src/assets/Background by GPT 5.5.png";
  
@@ -17,7 +17,8 @@
   ctx.imageSmoothingEnabled = false;
   const inventoryEl = document.getElementById("inventory");
   const startScreen = document.getElementById("startScreen");
-  const gameOverEl = document.getElementById("gameOver");
+  const gameOverOverlay = document.getElementById("gameOverOverlay");
+  const gameOverModal = document.getElementById("gameOverModal");
   const finalStatsEl = document.getElementById("finalStats");
   const DEBUG = false;
  
@@ -253,7 +254,12 @@ const enemyTypes = {
  
     closeInventory: document.getElementById("closeInventory"),
     startGame: document.getElementById("startGame"),
-    restartGame: document.getElementById("restartGame")
+    duelMode: document.getElementById("duelMode"),
+    restartGame: document.getElementById("restartGame"),
+    backToMenu: document.getElementById("backToMenu"),
+    duelNotice: document.getElementById("duelNotice"),
+    gameOverTitle: document.getElementById("gameOverTitle"),
+    finalStats: document.getElementById("finalStats"),
   };
  
   const keys = Object.create(null);
@@ -272,6 +278,8 @@ const enemyTypes = {
     cameraY: 0,
     gravity: 2200,
     floor: 635,
+    mode: "survival",
+    countdown: 0, // Controla o tempo da contagem regressiva no modo duelo
     paused: true,
     running: false,
     gameOver: false,
@@ -328,10 +336,13 @@ const enemyTypes = {
     enemies: [],
     arrows: [],
     orbs: [],
+    orbsCollected: 0,
     potions: [],
+    potionsUsed: 0,
     particles: [],
     kills: 0,
-    best: Number(localStorage.getItem("forjaRubraBest") || 0)
+    duelBot: null,
+    best: Number(localStorage.getItem("EndlessDungeonBest") || 0)
   }
   
   const playerSprites = {
@@ -342,11 +353,35 @@ const enemyTypes = {
     death:   loadEntityAnimation("src/assets/GandalfHardcore Archer/standard_skin/Death", 6),
     jump:    null // ou carregar uma pasta "Jump" se existir, senão cai no fallback abaixo
 };
+
+  // Sprites do bot do Modo Duelo: mesma animacao do jogador, na pele "black_skin"
+  const botSprites = {
+    idle:    loadEntityAnimation("src/assets/GandalfHardcore Archer/black_skin/Idle", 5),
+    run:     loadEntityAnimation("src/assets/GandalfHardcore Archer/black_skin/Run", 8),
+    attack:  loadEntityAnimation("src/assets/GandalfHardcore Archer/black_skin/Attack", 11),
+    takeHit: loadEntityAnimation("src/assets/GandalfHardcore Archer/black_skin/Take_Hit", 5),
+    death:   loadEntityAnimation("src/assets/GandalfHardcore Archer/black_skin/Death", 6),
+    jump:    null
+};
+
+  // Parametros que definem a "personalidade" de combate do bot
+  const BOT_AI = {
+    idealMin: 260,        // muito perto: recua mantendo a mira
+    idealMax: 520,        // muito longe: avanca
+    maxEngage: 900,       // distancia maxima em que ainda vale a pena atirar
+    aimTolerance: 20,     // alinhamento vertical necessario para disparar
+    potionThreshold: 0.42,// usa frasco quando a vida cai abaixo disso
+    dodgeChance: 0.4,    // chance de reagir a uma flecha se aproximando
+    dodgeCooldown: 1.2,  // tempo minimo entre esquivas
+    reactionMin: 0.35,    // atraso minimo de "reacao" apos atirar
+    reactionMax: 0.6,     // atraso maximo de "reacao" apos atirar
+    speed: 250
+  };
  
   function makePlayer() {
     return {
       x: 192,
-      y: 470,
+      y: 558,
       w: 36,
       h: 56,
       vx: 0,
@@ -356,7 +391,7 @@ const enemyTypes = {
       coyote: 0,
       hp: 120,
       maxHp: 120,
-      potions: 3,
+      potions: 3, // Modo Duelo mantem sempre esse valor fixo, sem compra
       orbs: 0,
       bow: 1,
       armor: 1,
@@ -365,6 +400,7 @@ const enemyTypes = {
       hurtTime: 0,
       animation: "idle",
       dead: false,
+      deathTimer: 0,
       animationFinished: false,
       frame:0,
       frameTimer:0,
@@ -377,15 +413,75 @@ const enemyTypes = {
       frameTimer:0
     };
   }
+
+  // Cria o adversario do Modo Duelo: mesmas dimensoes/animacoes do jogador,
+  // porem com a pele "black_skin" e controlado pela IA (updateBotAI).
+  function makeBot() {
+    const w = 36, h = 56;
+    return {
+      isBot: true,
+      type: "bot",
+
+      x: world.width - 92 - w,
+      y: world.platforms[0].y - h,
+      w: w,
+      h: h,
+
+      vx: 0,
+      vy: 0,
+      facing: -1,
+      grounded: false,
+      coyote: 0,
+      jumpCooldown: 0,
+
+      hp: 120,
+      maxHp: 120,
+      potions: 3,
+      bow: 1,
+      armor: 1,
+      value: 0,
+
+      attackCooldown: 0,
+      attackTime: 0,
+      hurtTime: 0,
+      arrowFired: false,
+
+      animation: "idle",
+      dead: false,
+      deathHold: 0,
+      animationFinished: false,
+      frame: 0,
+      frameTimer: 0,
+
+      strafeDir: 1,
+      strafeTimer: 0,
+      dodgeCooldown: 0,
+      reactionTimer: 0,
+
+      sprites: botSprites,
+      drawSize: 96,
+      drawOffsetY: 0
+    };
+  }
+
+  function spawnBot() {
+    const bot = makeBot();
+    state.enemies.push(bot);
+    state.duelBot = bot;
+  }
  
-  function resetGame() {
+  function resetGame(mode) {
+    world.mode = mode || world.mode || "survival";
     state.player = makePlayer();
     state.enemies = [];
     state.arrows = [];
     state.orbs = [];
+    state.orbsCollected = 0;
     state.potions = [];
+    state.potionsUsed = 0;
     state.particles = [];
     state.kills = 0;
+    state.duelBot = null;
     world.elapsed = 0;
     world.spawnTimer = 1.2;
     world.shake = 0;
@@ -394,11 +490,21 @@ const enemyTypes = {
     world.paused = false;
     world.running = true;
     world.gameOver = false;
+
+    // Define a contagem inicial se for Modo Duelo
+    world.countdown = (world.mode === "duel") ? 3.0 : 0;
     startScreen.classList.add("hidden");
-    gameOverEl.classList.add("hidden");
+    gameOverOverlay.classList.add("hidden");
+    gameOverModal.classList.add("hidden");
     inventoryEl.classList.add("hidden");
-    updateInventory();
-  }
+    document.body.classList.toggle("duel-mode", world.mode === "duel");
+    if (ui.duelNotice) ui.duelNotice.classList.toggle("hidden", world.mode !== "duel");
+  
+      if (world.mode === "duel") {
+        spawnBot();
+      }
+      updateInventory();
+}
  
   function upgradeCost(level) {
     return 6 + level * 4;
@@ -697,8 +803,8 @@ function chooseEnemyType(){
  
     entity.x += entity.vx*dt;
  
-    // apenas o jogador fica preso no mapa
-    if(entity === state.player){
+    // jogador e bot ficam presos ao mapa; a horda comum entra vinda de fora
+    if(entity === state.player || entity.isBot){
  
         entity.x = clamp(
             entity.x,
@@ -736,6 +842,11 @@ function chooseEnemyType(){
   function attack(){
  
     const player = state.player;
+
+    // Não permite disparar se o jogo estiver na contagem regressiva do modo duelo
+    if (world.countdown > 0 || !world.running || world.paused || world.gameOver) {
+        return;
+        }
  
     if(!player || world.paused || world.gameOver)
         return;
@@ -776,8 +887,36 @@ function chooseEnemyType(){
  
         life:1.15,
  
-        facing:player.facing
+        facing:player.facing,
+
+        owner:"player"
  
+    });
+}
+
+  function fireBotArrow(bot){
+
+    state.arrows.push({
+
+        x: bot.facing > 0 ?
+            bot.x + bot.w + 2 :
+            bot.x - 30,
+
+        y: bot.y + 13,
+
+        w:30,
+        h:6,
+
+        vx: bot.facing*820,
+
+        damage:22 + bot.bow*9,
+
+        life:1.15,
+
+        facing:bot.facing,
+
+        owner:"bot"
+
     });
 }
  
@@ -791,9 +930,11 @@ function chooseEnemyType(){
     world.shake = 0.16;
 
     if (player.hp <= 0) {
+        console.log("PLAYER MORREU");
         player.hp = 0;
         player.dead = true;
         player.vx = 0;
+        player.deathTimer = 6 * 0.40; // 6 frames * 0.40s por frame = 2.4s
     }
     }
   
@@ -802,6 +943,7 @@ function chooseEnemyType(){
     if (!player || player.potions <= 0 || player.hp >= player.maxHp) return;
     player.potions -= 1;
     player.hp = Math.min(player.maxHp, player.hp + 55);
+    state.potionsUsed += 1;
     addParticles(player.x + player.w / 2, player.y + 20, "#75d16f", 16);
     updateInventory();
 }  
@@ -812,6 +954,7 @@ function chooseEnemyType(){
     const potionCost = 20;
  
     if (!player) return;
+    if (world.mode === "duel") return;
  
     if (player.orbs < potionCost)
         return;
@@ -826,6 +969,7 @@ function chooseEnemyType(){
   function tryUpgrade(kind) {
     const player = state.player;
     if (!player) return;
+    if (world.mode === "duel") return;
     const level = player[kind];
     const cost = upgradeCost(level);
     if (player.orbs < cost) return;
@@ -855,73 +999,101 @@ function chooseEnemyType(){
     ui.upgradeBow.textContent = "Aprimorar (" + upgradeCost(player.bow) + " orbes)";
     ui.upgradeArmor.textContent = "Aprimorar (" + upgradeCost(player.armor) + " orbes)";
     ui.usePotion.disabled = player.potions <= 0 || player.hp >= player.maxHp;
-    ui.upgradeBow.disabled = player.orbs < upgradeCost(player.bow);
-    ui.upgradeArmor.disabled = player.orbs < upgradeCost(player.armor);
-    ui.buyPotion.disabled = player.orbs < 20;
+
+    const duel = world.mode === "duel";
+    ui.upgradeBow.disabled = duel || player.orbs < upgradeCost(player.bow);
+    ui.upgradeArmor.disabled = duel || player.orbs < upgradeCost(player.armor);
+    ui.buyPotion.disabled = duel || player.orbs < 20;
 }
  
     function updatePlayer(dt) {
-    const player = state.player;
+      const player = state.player;
 
-    player.attackCooldown = Math.max(0, player.attackCooldown - dt);
-    player.attackTime = Math.max(0, player.attackTime - dt);
-    player.hurtTime = Math.max(0, player.hurtTime - dt);
-    player.coyote = Math.max(0, player.coyote - dt);
+      player.attackCooldown = Math.max(0, player.attackCooldown - dt);
+      player.attackTime = Math.max(0, player.attackTime - dt);
+      player.hurtTime = Math.max(0, player.hurtTime - dt);
+      player.coyote = Math.max(0, player.coyote - dt);
 
-    if (!player.dead) {
-        const left = keys.ArrowLeft || keys.KeyA;
-        const right = keys.ArrowRight || keys.KeyD;
-        const jump = keys.ArrowUp || keys.KeyW || keys.Space;
-        const speed = 305;
+      if (!player.dead) {
 
-        if (left && !right) {
-        player.vx = -speed;
-        player.facing = -1;
-        } else if (right && !left) {
-        player.vx = speed;
-        player.facing = 1;
-        } else {
-        player.vx *= Math.pow(0.0008, dt);
-        if (Math.abs(player.vx) < 2) player.vx = 0;
-        }
+          const left = keys.ArrowLeft || keys.KeyA;
 
-        if (jump && !player.jumpHeld && (player.grounded || player.coyote > 0)) {
-        player.vy = -PLAYER_JUMP_SPEED;
-        player.grounded = false;
-        player.coyote = 0;
-        }
+          const right = keys.ArrowRight || keys.KeyD;
 
-        player.jumpHeld = jump;
-    } else {
-        player.vx = 0;
-    }
+          const jump = keys.ArrowUp || keys.KeyW || keys.Space;
 
-    player.vy += world.gravity * dt;
-    moveWithPlatforms(player, dt);
+          const speed = 305;
 
-    //-------------------
-    // definição da animação
-    //-------------------
-    const oldAnimation = player.animation;
 
-    if (player.dead) {
-        player.animation = "death";
-    } else if (player.hurtTime > 0) {
-        player.animation = "takeHit";
-    } else if (player.attackTime > 0) {
-        player.animation = "attack";
-    } else if (!player.grounded) {
-        player.animation = playerSprites.jump ? "jump" : "run";
-    } else if (Math.abs(player.vx) > 10) {
-        player.animation = "run";
-    } else {
-        player.animation = "idle";
-    }
 
-    if (oldAnimation !== player.animation) {
-        player.frame = 0;
-        player.frameTimer = 0;
-        player.animationFinished = false;
+          if (left && !right) {
+
+          player.vx = -speed;
+
+          player.facing = -1;
+
+          } else if (right && !left) {
+
+          player.vx = speed;
+
+          player.facing = 1;
+
+          } else {
+
+          player.vx *= Math.pow(0.0008, dt);
+
+          if (Math.abs(player.vx) < 2) player.vx = 0;
+
+          }
+
+
+
+          if (jump && !player.jumpHeld && (player.grounded || player.coyote > 0)) {
+
+          player.vy = -PLAYER_JUMP_SPEED;
+
+          player.grounded = false;
+
+          player.coyote = 0;
+
+          }
+
+
+
+          player.jumpHeld = jump;
+
+      } else {
+
+          player.vx = 0;
+
+      }
+
+      player.vy += world.gravity * dt;
+      moveWithPlatforms(player, dt);
+
+      //-------------------
+      // definição da animação
+      //-------------------
+      const oldAnimation = player.animation;
+
+      if (player.dead) {
+          player.animation = "death";
+      } else if (player.hurtTime > 0) {
+          player.animation = "takeHit";
+      } else if (player.attackTime > 0) {
+          player.animation = "attack";
+      } else if (!player.grounded) {
+          player.animation = playerSprites.jump ? "jump" : "run";
+      } else if (Math.abs(player.vx) > 10) {
+          player.animation = "run";
+      } else {
+          player.animation = "idle";
+      }
+
+      if (oldAnimation !== player.animation) {
+          player.frame = 0;
+          player.frameTimer = 0;
+          player.animationFinished = false;
     }
 
     //-------------------
@@ -995,6 +1167,194 @@ function chooseEnemyType(){
  
 }
  
+  // Procura uma flecha do jogador que esteja se aproximando do bot e alinhada
+  // o suficiente para representar ameaca real (usada para decidir esquivas).
+  function detectIncomingArrow(bot) {
+    for (const arrow of state.arrows) {
+      if (arrow.owner === "bot") continue;
+
+      const approaching =
+        (arrow.facing > 0 && arrow.x < bot.x) ||
+        (arrow.facing < 0 && arrow.x > bot.x);
+
+      if (!approaching) continue;
+
+      const dist = Math.abs((arrow.x + arrow.w / 2) - (bot.x + bot.w / 2));
+      const verticalAligned = Math.abs((arrow.y + arrow.h / 2) - (bot.y + bot.h / 2)) < 40;
+
+      if (verticalAligned && dist < 260) return arrow;
+    }
+    return null;
+  }
+
+  // Inteligencia de combate do bot: decide posicionamento (kiting), esquiva
+  // de flechas, quando atirar e quando usar frasco de vida. Fisica e
+  // animacao seguem o mesmo padrao usado para o jogador.
+function updateBotAI(bot, dt) {
+    const player = state.player;
+
+    bot.attackCooldown = Math.max(0, bot.attackCooldown - dt);
+    bot.attackTime = Math.max(0, bot.attackTime - dt);
+    bot.hurtTime = Math.max(0, bot.hurtTime - dt);
+    bot.coyote = Math.max(0, bot.coyote - dt);
+    bot.jumpCooldown = Math.max(0, bot.jumpCooldown - dt);
+    bot.reactionTimer = Math.max(0, bot.reactionTimer - dt);
+    bot.dodgeCooldown = Math.max(0, bot.dodgeCooldown - dt);
+
+    if (!player || player.dead) {
+      bot.vx *= Math.pow(0.0008, dt);
+      if (Math.abs(bot.vx) < 2) bot.vx = 0;
+      bot.vy += world.gravity * dt;
+      moveWithPlatforms(bot, dt);
+      advanceBotAnimation(bot, dt);
+      return;
+    }
+
+    const botCenter = center(bot);
+    const playerCenter = center(player);
+    const dx = playerCenter.x - botCenter.x;
+    const dy = playerCenter.y - botCenter.y;
+    const dist = Math.abs(dx);
+
+    // Sempre mira no jogador, independente da direcao em que esta se movendo
+    bot.facing = dx >= 0 ? 1 : -1;
+
+    let wantJump = false;
+    let moveDir = 0;
+
+    const incoming = bot.dodgeCooldown <= 0 ? detectIncomingArrow(bot) : null;
+
+    if (incoming) {
+      // Consome o cooldown no PRIMEIRO frame de detecção da flecha
+      bot.dodgeCooldown = BOT_AI.dodgeCooldown; 
+
+      if (Math.random() < BOT_AI.dodgeChance) {
+        if (bot.grounded || bot.coyote > 0) wantJump = true;
+        moveDir = -Math.sign(incoming.facing);
+      } else {
+        // Falhou na esquiva: mantém a movimentação padrão (kiting ou avanço)
+        moveDir = dist < BOT_AI.idealMin ? (dx >= 0 ? -1 : 1) : (dx > BOT_AI.idealMax ? (dx >= 0 ? 1 : -1) : 0);
+      }
+    } else {
+      if (dist < BOT_AI.idealMin) {
+        // Muito perto: recua mantendo a mira no jogador (kiting)
+        moveDir = dx >= 0 ? -1 : 1;
+      } else if (dist > BOT_AI.idealMax) {
+        // Muito longe: fecha distancia
+        moveDir = dx >= 0 ? 1 : -1;
+      } else {
+        // Na faixa ideal: reposiciona levemente em vez de ficar parado
+        bot.strafeTimer -= dt;
+        if (bot.strafeTimer <= 0) {
+          bot.strafeDir = Math.random() < 0.5 ? -1 : 1;
+          bot.strafeTimer = 0.5 + Math.random() * 0.8;
+        }
+        moveDir = bot.strafeDir * 0.4;
+      }
+
+      // Busca uma plataforma na altura do jogador para conseguir mira limpa
+      if (bot.grounded && bot.jumpCooldown <= 0 && shouldEnemyJump(bot, player)) {
+        wantJump = true;
+        bot.jumpCooldown = 0.9;
+      }
+    }
+
+    bot.vx = moveDir * BOT_AI.speed;
+
+    if (wantJump && (bot.grounded || bot.coyote > 0)) {
+      bot.vy = -PLAYER_JUMP_SPEED;
+      bot.grounded = false;
+      bot.coyote = 0;
+    }
+
+    // So atira quando ha alinhamento vertical minimo com o jogador
+    const aligned = Math.abs(dy) < BOT_AI.aimTolerance;
+
+    if (
+      bot.attackCooldown <= 0 &&
+      bot.reactionTimer <= 0 &&
+      bot.attackTime <= 0 &&
+      aligned &&
+      dist < BOT_AI.maxEngage
+    ) {
+      // Cooldown de ataque aumentado para dar espaço respirável ao jogador (ex: 0.8s a 1.2s)
+      bot.attackCooldown = 0.80 + Math.random() * 0.40;
+      bot.attackTime = 0.40;
+      bot.animation = "attack";
+      bot.frame = 0;
+      bot.frameTimer = 0;
+      bot.arrowFired = false;
+      bot.reactionTimer = BOT_AI.reactionMin + Math.random() * (BOT_AI.reactionMax - BOT_AI.reactionMin);
+    }
+
+    // Gerencia de vida: usa frasco quando esta em perigo
+    if (bot.hp / bot.maxHp < BOT_AI.potionThreshold && bot.potions > 0 && bot.hurtTime <= 0) {
+      bot.potions -= 1;
+      bot.hp = Math.min(bot.maxHp, bot.hp + 55);
+      addParticles(bot.x + bot.w / 2, bot.y + 20, "#75d16f", 16);
+    }
+
+    bot.vy += world.gravity * dt;
+    moveWithPlatforms(bot, dt);
+
+    advanceBotAnimation(bot, dt);
+}
+
+  // Espelha updatePlayer(dt) para o bot: escolhe animacao, avanca frames e
+  // dispara a flecha no meio da animacao de ataque.
+  function advanceBotAnimation(bot, dt) {
+    const oldAnimation = bot.animation;
+
+    if (bot.dead) {
+      bot.animation = "death";
+    } else if (bot.hurtTime > 0) {
+      bot.animation = "takeHit";
+    } else if (bot.attackTime > 0) {
+      bot.animation = "attack";
+    } else if (!bot.grounded) {
+      bot.animation = bot.sprites.jump ? "jump" : "run";
+    } else if (Math.abs(bot.vx) > 10) {
+      bot.animation = "run";
+    } else {
+      bot.animation = "idle";
+    }
+
+    if (oldAnimation !== bot.animation) {
+      bot.frame = 0;
+      bot.frameTimer = 0;
+      bot.animationFinished = false;
+    }
+
+    const frameDuration =
+      bot.animation === "attack" ? 0.036 :
+      bot.animation === "death" ? 0.40 :
+      0.12;
+
+    bot.frameTimer += dt;
+
+    if (bot.animation === "attack" && bot.attackTime <= 0.08 && !bot.arrowFired) {
+      fireBotArrow(bot);
+      bot.arrowFired = true;
+    }
+
+    if (bot.frameTimer > frameDuration) {
+      bot.frame++;
+
+      const maxFrames = bot.sprites[bot.animation].length;
+
+      if (bot.frame >= maxFrames) {
+        if (bot.animation === "death" || bot.animation === "takeHit") {
+          bot.frame = maxFrames - 1;
+          bot.animationFinished = true;
+        } else {
+          bot.frame = 0;
+        }
+      }
+
+      bot.frameTimer = 0;
+    }
+  }
+ 
   function updateEnemies(dt) {
  
       const player = state.player;
@@ -1017,7 +1377,12 @@ function chooseEnemyType(){
  
           if(enemy.dead)
               continue;
- 
+
+          if(enemy.isBot){
+              updateBotAI(enemy, dt);
+              continue;
+          }
+
  
           enemy.attackTimer =
           Math.max(0,enemy.attackTimer-dt);
@@ -1042,12 +1407,10 @@ function chooseEnemyType(){
 
               let targetDx = dx;
 
-              // já está comprometido com uma direção: só libera quando o Y mudar
               if(enemy.edgeSeekDir !== undefined){
 
                   if(Math.abs(enemy.y - enemy.edgeSeekY) > 1){
 
-                      // caiu de verdade: libera o compromisso
                       enemy.edgeSeekDir = undefined;
                       enemy.edgeSeekY = undefined;
 
@@ -1056,13 +1419,12 @@ function chooseEnemyType(){
                   }
                   else{
 
-                      // ainda na mesma altura: mantém a direção comprometida
                       targetDx = enemy.edgeSeekDir;
 
                   }
 
               }
-              // ainda não comprometido: verifica se precisa se comprometer agora
+
               else if(verticalGapToPlayer < -40 && enemy.grounded){
 
                   const platform = getPlatformUnder(enemy);
@@ -1147,6 +1509,10 @@ function chooseEnemyType(){
       //------------------
  
       for(const enemy of state.enemies){
+ 
+          if(enemy.isBot && !enemy.dead){
+              continue;
+          }
  
           if(enemy.dead){
 
@@ -1234,7 +1600,7 @@ function chooseEnemyType(){
           enemy.animation === "attack"
           ? 0.055
           : enemy.animation === "death"
-          ? 0.15
+          ? (enemy.isBot ? 0.40 : 0.15)
           : 0.12;
  
  
@@ -1349,7 +1715,11 @@ function chooseEnemyType(){
  
                 state.enemies.splice(i,1);
  
-                state.kills += 1;
+                if(enemy.isBot){
+                    state.duelBot = null;
+                } else {
+                    state.kills += 1;
+                }
  
             }
  
@@ -1364,11 +1734,19 @@ function chooseEnemyType(){
       arrow.life -= dt;
       arrow.x += arrow.vx * dt;
     }
+
+    const player = state.player;
  
     for (let i = state.arrows.length - 1; i >= 0; i -= 1) {
       const arrow = state.arrows[i];
       let remove = arrow.life <= 0 || arrow.x < -80 || arrow.x > world.width + 80;
-      if (!remove) {
+
+      if (!remove && arrow.owner === "bot") {
+        if (player && !player.dead && rectsOverlap(arrow, player)) {
+          hurtPlayer(arrow.damage);
+          remove = true;
+        }
+      } else if (!remove) {
         for (const enemy of state.enemies) {
           if (enemy.hp <= 0) continue;
           if (rectsOverlap(arrow, enemy)) {
@@ -1411,6 +1789,7 @@ function chooseEnemyType(){
       const orb = state.orbs[i];
       if (Math.hypot(player.x + player.w / 2 - orb.x, player.y + player.h / 2 - orb.y) < 34) {
         player.orbs += 1;
+        state.orbsCollected++;
         removeAt(state.orbs, i);
       }
     }
@@ -1430,17 +1809,26 @@ function chooseEnemyType(){
  
     function update(dt) {
     if (!world.running || world.paused || world.gameOver) return;
+    if (world.countdown > 0) {
+      world.countdown -= dt;
+      if (world.countdown < 0) world.countdown = 0;
+      return; // Pausa a física e os ataques até zerar o cronômetro
+  }
     world.elapsed += dt;
     world.spawnTimer -= dt;
     world.shake = Math.max(0, world.shake - dt);
 
-    const minutes = world.elapsed / 60;
-    const spawnRate = Math.max(0.68, 2.1 - minutes * 0.2);
-    const maxEnemies = Math.min(18, 5 + Math.floor(minutes * 3));
-    if (world.spawnTimer <= 0 && state.enemies.length < maxEnemies) {
-        spawnEnemy();
-        world.spawnTimer = spawnRate;
+    if (world.mode === "survival") {
+        const minutes = world.elapsed / 60;
+        const spawnRate = Math.max(0.68, 2.1 - minutes * 0.2);
+        const maxEnemies = Math.min(18, 5 + Math.floor(minutes * 3));
+        if (world.spawnTimer <= 0 && state.enemies.length < maxEnemies) {
+            spawnEnemy();
+            world.spawnTimer = spawnRate;
+        }
     }
+    // Modo Duelo: a horda comum nao aparece aqui, apenas o bot adversario
+    // (adicionado em spawnBot / resetGame).
 
     updatePlayer(dt);
     updateArrows(dt);
@@ -1449,7 +1837,13 @@ function chooseEnemyType(){
     updateDrops(dt);
     updateParticles(dt);
 
-    if (state.player.dead && state.player.animationFinished) {
+    if (world.mode === "duel") {
+        if (state.player.dead && state.player.animationFinished) {
+            finishGame(false);
+        } else if (!state.duelBot && !state.player.dead) {
+            finishGame(true);
+        }
+    } else if (state.player.dead && state.player.animationFinished) {
         finishGame();
     }
     }
@@ -1597,6 +1991,16 @@ function chooseEnemyType(){
  
  
       ctx.restore();
+
+      if(enemy.isBot && !enemy.dead){
+
+          const barW = 46;
+          const barX = enemy.x + enemy.w/2 - barW/2;
+          const barY = enemy.y - 14;
+
+          drawBar(barX, barY, barW, 6, enemy.hp/enemy.maxHp, "#e84242");
+
+      }
  
   }
  
@@ -1660,6 +2064,36 @@ function chooseEnemyType(){
     ctx.fillText("A/D mover  |  W/Space pular  |  J disparar  |  I inventario", 418, 43);
     ctx.restore();
   }
+
+  function drawCountdown() {
+    if (world.countdown <= 0) return;
+
+    ctx.save();
+    ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+    ctx.fillRect(0, 0, world.width, world.height);
+
+    const seconds = Math.ceil(world.countdown);
+    const text = seconds > 0 ? String(seconds) : "LUTE!";
+
+    ctx.fillStyle = "#f4efe6";
+    ctx.strokeStyle = "#e84242";
+    ctx.lineWidth = 6;
+    ctx.font = "900 72px 'Segoe UI', Arial, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    const centerX = world.width / 2;
+    const centerY = world.height / 2 - 30;
+
+    ctx.strokeText(text, centerX, centerY);
+    ctx.fillText(text, centerX, centerY);
+
+    ctx.font = "700 20px 'Segoe UI', Arial, sans-serif";
+    ctx.fillStyle = "#d8d2c8";
+    ctx.fillText("PREPARE-SE PARA O DUELO", centerX, centerY + 60);
+
+    ctx.restore();
+  }
  
   function drawBar(x, y, w, h, pct, color) {
     ctx.fillStyle = "#111";
@@ -1683,22 +2117,68 @@ function chooseEnemyType(){
     drawParticles();
     ctx.restore();
     drawHud();
+
+    // Desenha a contagem por cima de tudo
+    drawCountdown();
   }
  
-  function finishGame() {
+  function finishGame(victory) {
+
     world.gameOver = true;
     world.paused = true;
+
+    gameOverOverlay.classList.remove("hidden");
+    gameOverModal.classList.remove("hidden");
+
     const survived = Math.floor(world.elapsed);
-    if (survived > state.best) {
+
+    if (world.mode !== "duel" && survived > state.best) {
       state.best = survived;
-      localStorage.setItem("forjaRubraBest", String(survived));
+      localStorage.setItem("EndlessDungeonBest", String(survived));
     }
-    const min = Math.floor(survived / 60);
+
+    const min = String(Math.floor(survived / 60)).padStart(2, "0");
     const sec = String(survived % 60).padStart(2, "0");
-    finalStatsEl.textContent = "Voce sobreviveu " + min + ":" + sec + " e derrotou " + state.kills + " monstros";
-    gameOverEl.classList.remove("hidden");
+
+    const titleEl = document.getElementById("gameOverTitle");
+    if (titleEl) {
+      if (world.mode === "duel") {
+        titleEl.textContent = victory ? "Duelo Vencido!" : "Duelo Perdido";
+      } else {
+        titleEl.textContent = "Você morreu";
+      }
+    }
+
+    const statsEl = document.getElementById("finalStats");
+    if (statsEl) {
+      if (world.mode === "duel") {
+        statsEl.innerHTML = victory
+          ? `<p>Você derrotou o bot em <strong>${min}:${sec}</strong>.</p>`
+          : `<p>O guerreiro inimigo venceu o duelo em <strong>${min}:${sec}</strong>.</p>`;
+      } else {
+        // MODO SOBREVIVÊNCIA
+        statsEl.innerHTML = `
+          <p class="stats-header">Estatísticas de combate</p>
+          <ul class="stats-list">
+            <li><span>Tempo de sobrevivência:</span> <strong>${min}:${sec}</strong></li>
+            <li><span>Inimigos derrotados:</span> <strong>${state.kills || 0}</strong></li>
+            <li><span>Poções usadas:</span> <strong>${state.potionsUsed || 0}</strong></li>
+            <li><span>Orbes coletadas:</span> <strong>${state.orbsCollected || 0}</strong></li>
+            <li><span>Nível do Arco:</span> <strong>Nv. ${state.player ? state.player.bow : 1}</strong></li>
+            <li><span>Nível da Armadura:</span> <strong>Nv. ${state.player ? state.player.armor : 1}</strong></li>
+          </ul>
+        `;
+      }
+    }
+
+    const modal = document.querySelector("#gameOver .modal");
+    if (modal) {
+      modal.classList.remove("hidden");
+      modal.style.display = "flex";
+    }
   }
  
+  
   let last = performance.now();
   function loop(now) {
     const dt = Math.min(0.033, (now - last) / 1000);
@@ -1719,6 +2199,21 @@ function chooseEnemyType(){
   window.addEventListener("keyup", function (event) {
     keys[event.code] = false;
   });
+
+  function backToMenu() {
+
+    world.running = false;
+    world.paused = false;
+    world.gameOver = false;
+
+    gameOverOverlay.classList.add("hidden");
+    gameOverModal.classList.add("hidden");
+    inventoryEl.classList.add("hidden");
+
+    startScreen.classList.remove("hidden");
+
+    document.body.classList.remove("duel-mode");
+}
  
   canvas.addEventListener("pointerdown", attack);
   ui.usePotion.addEventListener("click", usePotion);
@@ -1726,9 +2221,17 @@ function chooseEnemyType(){
   ui.upgradeBow.addEventListener("click", function () { tryUpgrade("bow"); });
   ui.upgradeArmor.addEventListener("click", function () { tryUpgrade("armor"); });
   ui.closeInventory.addEventListener("click", function () { toggleInventory(false); });
-  ui.startGame.addEventListener("click", resetGame);
-  ui.restartGame.addEventListener("click", resetGame);
- 
+  ui.startGame.addEventListener("click", function () { resetGame("survival"); });
+  ui.duelMode.addEventListener("click", function () { resetGame("duel"); });
+  ui.restartGame.addEventListener("click", function () { resetGame(world.mode); });
+  ui.backToMenu.addEventListener("click", function () {
+  world.running = false;
+  world.paused = true;
+  world.gameOver = false;
+  gameOverOverlay.classList.add("hidden");
+  startScreen.classList.remove("hidden"); // Exibe a tela inicial/menu
+  });
+  
   updateInventory();
   draw();
   requestAnimationFrame(loop);

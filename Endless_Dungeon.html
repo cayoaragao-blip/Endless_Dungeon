@@ -1,0 +1,124 @@
+﻿<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Endless Dungeon</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <main class="game-shell">
+      <canvas id="game" width="1280" height="720" aria-label="Endless Dungeon"></canvas>
+
+      <section id="inventory" class="overlay hidden" aria-label="Inventario">
+        <div class="panel">
+          <header class="panel-header">
+            <div>
+              <h1>Inventario</h1>
+              <p>Orbes vermelhos fortalecem seu arco, armadura e podem ser usados para comprar frascos de vida.</p>
+              <p id="duelNotice" class="duel-notice hidden">Modo Duelo: upgrades e compra de frascos estao desativados. Voce comeca com 3 frascos fixos.</p>
+            </div>
+            <button id="closeInventory" type="button" title="Fechar">X</button>
+          </header>
+
+          <div class="inventory-grid">
+            <article class="item-slot selected" data-action="potion">
+
+              <span class="item-icon potion"></span>
+
+              <div>
+                  <strong>Frasco de vida</strong>
+                  <small id="potionCount">
+                      0 disponiveis
+                  </small>
+              </div>
+
+              <div class="potion-buttons">
+
+                  <button id="usePotion"
+                          type="button">
+                      Usar
+                  </button>
+
+                  <button id="buyPotion"
+                          type="button">
+                      Comprar (20)
+                  </button>
+
+              </div>
+
+            </article>
+
+            <article class="upgrade-box">
+              <span class="item-icon bow"></span>
+              <div>
+                <strong>Arco</strong>
+                <small id="bowLevel">Nivel 1</small>
+              </div>
+              <button id="upgradeBow" type="button">Aprimorar</button>
+            </article>
+
+            <article class="upgrade-box">
+              <span class="item-icon armor"></span>
+              <div>
+                <strong>Armadura</strong>
+                <small id="armorLevel">Nivel 1</small>
+              </div>
+              <button id="upgradeArmor" type="button">Aprimorar</button>
+            </article>
+          </div>
+
+          <footer class="panel-footer">
+            <span id="orbCount">0 orbes</span>
+          </footer>
+        </div>
+      </section>
+
+      <section id="startScreen" class="overlay">
+        <div class="title-panel menu-panel">
+          <h1>Endless Dungeon</h1>
+          <p>Escolha um modo de jogo para começar.</p>
+
+          <div class="mode-buttons">
+            <button id="startGame" type="button" class="mode-btn">
+              <span class="mode-icon" aria-hidden="true">
+              <img src="src/assets/survival_mode_icon.png" alt="" width="40" height="40" style="vertical-align: middle;">
+              </span>
+              <span class="mode-title">Modo Sobrevivencia</span>
+              <span class="mode-desc">Enfrente hordas infinitas de monstros, colete orbes e sobreviva o maximo que puder.</span>
+            </button>
+
+            <button id="duelMode" type="button" class="mode-btn">
+              <span class="mode-badge">Beta</span>
+              <span class="mode-icon" aria-hidden="true">
+              <img src="src/assets/duel_mode_icon.png" alt="" width="40" height="40" style="vertical-align: middle;">
+              </span>
+              <span class="mode-title">Modo Duelo</span>
+              <span class="mode-desc">Enfrente um guerreiro em um duelo mortal. Sem upgrades, apenas 3 frascos de vida.</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section id="gameOverOverlay" class="overlay hidden">
+        <div id="gameOverModal" class="modal hidden">
+          <div class="modal-content">
+            <h2 id="gameOverTitle">Você morreu</h2>
+            
+            <div id="finalStats" class="stats-container">
+              <!-- As estatísticas serão inseridas dinamicamente pelo JavaScript -->
+            </div>
+
+            <div class="modal-actions">
+              <button id="restartGame" class="btn primary">Recomeçar</button>
+              <button id="backToMenu" class="btn secondary">Voltar ao menu inicial</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="game.js"></script>
+  
+  </body>
+</html>

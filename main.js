@@ -11,7 +11,8 @@ function createWindow() {
     }
   });
 
-  win.loadFile("Endless Dungeon.html");
+  win.loadFile("Endless_Dungeon.html");
+  // win.webContents.openDevTools();
 }
 
 app.whenReady().then(createWindow);
