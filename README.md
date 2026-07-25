@@ -20,6 +20,11 @@ O jogador enfrenta monstros que ficam cada vez mais fortes com o passar do tempo
     - Fonte: https://foozlecc.itch.io/critters-enemy-pack-3
     - Licença: Creative Commons Zero v1.0 Universal
 
+- Ícones do menu inicial
+    - Autor: 7Soul
+    - Fonte: https://opengameart.org/content/98-pixel-art-rpg-icons
+    - Licença: CC-BY 3.0
+
 
 ## Como rodar
 
