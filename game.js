@@ -1,6 +1,173 @@
 (function () {
   "use strict";
- 
+
+
+  const sounds = {
+    run: new Audio("src/assets/sfx/run.wav"),
+    takeHit: new Audio("src/assets/sfx/takeHit.wav"),
+    jump: new Audio("src/assets/sfx/jump.wav"),
+    heal: new Audio("src/assets/sfx/heal.wav"),
+    death: new Audio("src/assets/sfx/death.wav"),
+    attack: new Audio("src/assets/sfx/shoot.mp3"),
+    mushroom_takeHit: new Audio("src/assets/sfx/mushroom_hurt.wav"),
+    weasel_takeHit: new Audio("src/assets/sfx/weasel_hurt.wav"),
+  }
+
+  let sfxEnabled = true;
+
+  function playSfx(sound) {
+    console.log(sound);
+    if (!sfxEnabled) return;
+
+    const s = sound.cloneNode();
+    s.volume = sound.volume;
+    s.play().catch(() => {});
+}
+
+  sounds.run.volume = 0.3;
+  sounds.takeHit.volume = 0.7;
+  sounds.jump.volume = 1;
+  sounds.heal.volume = 0.22;
+  sounds.death.volume = 0.25;
+  sounds.attack.volume = 0.7;
+  sounds.mushroom_takeHit.volume = 0.3;
+  sounds.weasel_takeHit.volume = 0.3;
+
+  const menuMusic = new Audio("src/assets/sfx/menu_theme.mp3");
+    menuMusic.loop = true;
+    menuMusic.volume = 0;
+
+  let menuMusicStarted = false;
+
+  function startMenuIntro() {
+    if (musicEnabled) {
+        menuMusic.volume = 0;
+        menuMusic.play();
+    }
+
+    triggerSceneTransition({
+        duration: 1500,
+
+        onBlackout: () => {
+            document
+                .getElementById("introScreen")
+                .classList.add("hidden");
+
+            document
+                .getElementById("startScreen")
+                .classList.remove("hidden");
+        },
+
+        onComplete: () => {
+            if (musicEnabled) {
+                menuMusic.volume = 0.5;
+            }
+        }
+    });
+  }
+
+  function stopMenuMusic() {
+    menuMusic.pause();
+  }
+
+  function resumeMenuMusic() {
+      if (menuMusicStarted && musicEnabled) {
+          menuMusic.currentTime = 0;
+          menuMusic.play();
+      }
+  }
+
+  function playMatchMusic(mode) {
+    if (!musicEnabled) return;
+    const track = matchMusic[mode];
+    if (!track) return;
+
+    currentMatchMusic = track;
+    track.currentTime = 0;
+    track.play();
+}
+
+function stopMatchMusic() {
+  if (currentMatchMusic) {
+    currentMatchMusic.pause();
+    currentMatchMusic = null;
+  }
+}
+
+  const matchMusic = {
+  survival: new Audio("src/assets/sfx/survival_theme.ogg"),
+  duel: new Audio("src/assets/sfx/duel_theme.mp3"),
+  };
+
+  matchMusic.survival.loop = true;
+  matchMusic.duel.loop = true;
+
+  matchMusic.survival.volume = 0.5;
+  matchMusic.duel.volume = 0.5;
+
+  let currentMatchMusic = null;
+
+  let isTransitioning = false;
+
+function triggerSceneTransition(options) {
+  const { onBlackout, onComplete, duration = 2000 } = options;
+  if (isTransitioning) return;
+  isTransitioning = true;
+
+  const overlay = document.getElementById("screenTransitionOverlay");
+  overlay.classList.remove("hidden");
+
+  // Força reflow para garantir que a classe active acione a animação CSS
+  void overlay.offsetWidth;
+  overlay.classList.add("active");
+
+  const activeAudio = currentMatchMusic || (menuMusicStarted ? menuMusic : null);
+  const initialVolume = activeAudio ? activeAudio.volume : 0;
+  const startTime = performance.now();
+
+  // Fade out da música e tela para preto
+  const fadeInterval = setInterval(() => {
+    const elapsed = performance.now() - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+
+    if (activeAudio) {
+      activeAudio.volume = Math.max(0, initialVolume * (1 - progress));
+    }
+
+    if (progress >= 1) {
+      clearInterval(fadeInterval);
+
+      // Ponto de escuridão total: troca telas / reseta estados
+      if (onBlackout) onBlackout();
+
+      // Inicia Fade in da tela e do áudio
+      overlay.classList.remove("active");
+
+      const newAudio = currentMatchMusic || (menuMusicStarted ? menuMusic : null);
+      const targetVolume = world.running ? 0.2 : 0.5; // Volumes base do seu jogo
+      const fadeInStart = performance.now();
+
+      if (newAudio) newAudio.volume = 0;
+
+      const fadeInInterval = setInterval(() => {
+        const inElapsed = performance.now() - fadeInStart;
+        const inProgress = Math.min(inElapsed / duration, 1);
+
+        if (newAudio) {
+          newAudio.volume = targetVolume * inProgress;
+        }
+
+        if (inProgress >= 1) {
+          clearInterval(fadeInInterval);
+          overlay.classList.add("hidden");
+          isTransitioning = false;
+          if (onComplete) onComplete();
+        }
+      }, 30);
+    }
+  }, 30);
+}
+
   const sprites = {
     player: new Image(),
     enemy: new Image(),
@@ -20,7 +187,33 @@
   const gameOverOverlay = document.getElementById("gameOverOverlay");
   const gameOverModal = document.getElementById("gameOverModal");
   const finalStatsEl = document.getElementById("finalStats");
+
+  let musicEnabled = true;
+
+  const musicToggle = document.getElementById("musicToggle");
+  const sfxToggle = document.getElementById("sfxToggle");
+
+  musicToggle.addEventListener("change", () => {
+      musicEnabled = musicToggle.checked;
+
+      if (!musicEnabled) {
+          menuMusic.pause();
+      } else {
+          menuMusic.currentTime = 0;
+          menuMusic.play();
+      }
+  });
+
+sfxToggle.addEventListener("change", () => {
+    sfxEnabled = sfxToggle.checked;
+});
   const DEBUG = false;
+
+//function playSound(sound) {
+//    const s = sound.cloneNode();
+//    s.volume = sound.volume;
+//    s.play().catch(() => {});
+//}
  
 function loadEntityAnimation(path,frames){
 
@@ -43,13 +236,15 @@ function loadEntityAnimation(path,frames){
 const enemyTypes = {
 
     mushroom:{
+      
+        takeHitSound:"mushroom_takeHit",
 
         stats:{
 
             hp:32,
             damage:10,
             speed:92,
-            value:2,
+            value:1,
 
             attackCooldown:0.78,
             jumpCooldown:0.70,
@@ -100,7 +295,7 @@ const enemyTypes = {
 
             run:loadEntityAnimation(
 
-                "src/assets/Mushroom/Run",
+                "src/assets/enemies/Mushroom/Run",
 
                 8
 
@@ -108,7 +303,7 @@ const enemyTypes = {
 
             attack:loadEntityAnimation(
 
-                "src/assets/Mushroom/Attack",
+                "src/assets/enemies/Mushroom/Attack",
 
                 8
 
@@ -116,7 +311,7 @@ const enemyTypes = {
 
             takeHit:loadEntityAnimation(
 
-                "src/assets/Mushroom/Take_Hit",
+                "src/assets/enemies/Mushroom/Take_Hit",
 
                 4
 
@@ -124,7 +319,7 @@ const enemyTypes = {
 
             death:loadEntityAnimation(
 
-                "src/assets/Mushroom/Death",
+                "src/assets/enemies/Mushroom/Death",
 
                 4
 
@@ -139,12 +334,14 @@ const enemyTypes = {
 
     weaselFisherman:{
 
+        takeHitSound:"weasel_takeHit",
+
         stats:{
 
             hp:64,
             damage:15,
             speed:105,
-            value:4,
+            value:2,
 
             attackCooldown:0.65,
             jumpCooldown:0.60,
@@ -196,7 +393,7 @@ const enemyTypes = {
 
             run:loadEntityAnimation(
 
-                "src/assets/Weasel_Fisherman/Run",
+                "src/assets/enemies/Weasel_Fisherman/Run",
 
                 8
 
@@ -204,7 +401,7 @@ const enemyTypes = {
 
             attack:loadEntityAnimation(
 
-                "src/assets/Weasel_Fisherman/Attack",
+                "src/assets/enemies/Weasel_Fisherman/Attack",
 
                 7
 
@@ -212,7 +409,7 @@ const enemyTypes = {
 
             takeHit:loadEntityAnimation(
 
-                "src/assets/Weasel_Fisherman/Take_Hit",
+                "src/assets/enemies/Weasel_Fisherman/Take_Hit",
 
                 4
 
@@ -220,7 +417,7 @@ const enemyTypes = {
 
             death:loadEntityAnimation(
 
-                "src/assets/Weasel_Fisherman/Death",
+                "src/assets/enemies/Weasel_Fisherman/Death",
 
                 10
 
@@ -228,7 +425,7 @@ const enemyTypes = {
 
             jump:loadEntityAnimation(
 
-                "src/assets/Weasel_Fisherman/Jump",
+                "src/assets/enemies/Weasel_Fisherman/Jump",
 
                 6
 
@@ -260,6 +457,7 @@ const enemyTypes = {
     duelNotice: document.getElementById("duelNotice"),
     gameOverTitle: document.getElementById("gameOverTitle"),
     finalStats: document.getElementById("finalStats"),
+    startScreen: document.getElementById("startScreen"),
   };
  
   const keys = Object.create(null);
@@ -371,7 +569,7 @@ const enemyTypes = {
     maxEngage: 900,       // distancia maxima em que ainda vale a pena atirar
     aimTolerance: 20,     // alinhamento vertical necessario para disparar
     potionThreshold: 0.42,// usa frasco quando a vida cai abaixo disso
-    dodgeChance: 0.4,    // chance de reagir a uma flecha se aproximando
+    dodgeChance: 0.5,    // chance de reagir a uma flecha se aproximando
     dodgeCooldown: 1.2,  // tempo minimo entre esquivas
     reactionMin: 0.35,    // atraso minimo de "reacao" apos atirar
     reactionMax: 0.6,     // atraso maximo de "reacao" apos atirar
@@ -471,7 +669,9 @@ const enemyTypes = {
   }
  
   function resetGame(mode) {
+    stopMenuMusic();
     world.mode = mode || world.mode || "survival";
+    playMatchMusic(world.mode);
     state.player = makePlayer();
     state.enemies = [];
     state.arrows = [];
@@ -757,6 +957,8 @@ function chooseEnemyType(){
 
         drawOffsetY: data.size.drawOffsetY || 0,
 
+        takeHitSound: data.takeHitSound,
+
     };
 
 
@@ -889,7 +1091,7 @@ function chooseEnemyType(){
  
         facing:player.facing,
 
-        owner:"player"
+        owner:"player",
  
     });
 }
@@ -918,9 +1120,11 @@ function chooseEnemyType(){
         owner:"bot"
 
     });
+
+    playSfx(sounds.attack);
 }
  
-    function hurtPlayer(amount) {
+  function hurtPlayer(amount) {
     const player = state.player;
     if (!player || player.hurtTime > 0 || player.dead || world.gameOver) return;
     const blocked = Math.max(0, amount - (player.armor - 1) * 3);
@@ -930,20 +1134,25 @@ function chooseEnemyType(){
     world.shake = 0.16;
 
     if (player.hp <= 0) {
+        playSfx(sounds.death);
         console.log("PLAYER MORREU");
         player.hp = 0;
         player.dead = true;
         player.vx = 0;
         player.deathTimer = 6 * 0.40; // 6 frames * 0.40s por frame = 2.4s
+    } else {
+        playSfx(sounds.takeHit);
     }
-    }
+}
   
   function usePotion() {
     const player = state.player;
     if (!player || player.potions <= 0 || player.hp >= player.maxHp) return;
     player.potions -= 1;
     player.hp = Math.min(player.maxHp, player.hp + 55);
+    playSfx(sounds.heal);
     state.potionsUsed += 1;
+    playSfx(sounds.heal);
     addParticles(player.x + player.w / 2, player.y + 20, "#75d16f", 16);
     updateInventory();
 }  
@@ -1005,7 +1214,9 @@ function chooseEnemyType(){
     ui.upgradeArmor.disabled = duel || player.orbs < upgradeCost(player.armor);
     ui.buyPotion.disabled = duel || player.orbs < 20;
 }
- 
+
+    let footstepTimer = 0;
+
     function updatePlayer(dt) {
       const player = state.player;
 
@@ -1052,6 +1263,8 @@ function chooseEnemyType(){
 
           player.vy = -PLAYER_JUMP_SPEED;
 
+          playSfx(sounds.jump);
+
           player.grounded = false;
 
           player.coyote = 0;
@@ -1061,6 +1274,17 @@ function chooseEnemyType(){
 
 
           player.jumpHeld = jump;
+
+          if (player.grounded && Math.abs(player.vx) > 10) {
+              footstepTimer += dt;
+
+              if (footstepTimer >= 0.25) { // intervalo entre passos
+                  playSfx(sounds.run);
+                  footstepTimer = 0;
+          }
+          } else {
+              footstepTimer = 0;
+          }
 
       } else {
 
@@ -1111,7 +1335,9 @@ function chooseEnemyType(){
         player.attackTime <= 0.08 &&
         !player.arrowFired
     ) {
-        fireArrow();
+        fireArrow(); 
+        playSfx(sounds.attack);
+        
         player.arrowFired = true;
     }
 
@@ -1187,6 +1413,8 @@ function chooseEnemyType(){
     return null;
   }
 
+let botFootstepTimer = 0;
+
   // Inteligencia de combate do bot: decide posicionamento (kiting), esquiva
   // de flechas, quando atirar e quando usar frasco de vida. Fisica e
   // animacao seguem o mesmo padrao usado para o jogador.
@@ -1261,8 +1489,20 @@ function updateBotAI(bot, dt) {
 
     bot.vx = moveDir * BOT_AI.speed;
 
+    if (bot.grounded && Math.abs(bot.vx) > 10) {
+        botFootstepTimer += dt;
+
+        if (botFootstepTimer >= 0.25) {
+            playSfx(sounds.run);
+            botFootstepTimer = 0;
+        }
+    } else {
+        botFootstepTimer = 0;
+    }
+
     if (wantJump && (bot.grounded || bot.coyote > 0)) {
       bot.vy = -PLAYER_JUMP_SPEED;
+      playSfx(sounds.jump);
       bot.grounded = false;
       bot.coyote = 0;
     }
@@ -1291,6 +1531,7 @@ function updateBotAI(bot, dt) {
     if (bot.hp / bot.maxHp < BOT_AI.potionThreshold && bot.potions > 0 && bot.hurtTime <= 0) {
       bot.potions -= 1;
       bot.hp = Math.min(bot.maxHp, bot.hp + 55);
+      playSfx(sounds.heal);
       addParticles(bot.x + bot.w / 2, bot.y + 20, "#75d16f", 16);
     }
 
@@ -1736,6 +1977,7 @@ function updateBotAI(bot, dt) {
     }
 
     const player = state.player;
+    const NONFATAL_TAKEHIT_CHANCE = 0.1; // chance em hits não fatais de inimigos comuns
  
     for (let i = state.arrows.length - 1; i >= 0; i -= 1) {
       const arrow = state.arrows[i];
@@ -1751,6 +1993,21 @@ function updateBotAI(bot, dt) {
           if (enemy.hp <= 0) continue;
           if (rectsOverlap(arrow, enemy)) {
             enemy.hp -= arrow.damage;
+            const isFatal = enemy.hp <= 0;
+
+            if (enemy.isBot) {
+              // Mesmo mecanismo e áudios do personagem jogável
+              if (isFatal) {
+                playSfx(sounds.death);
+              } else {
+                playSfx(sounds.takeHit);
+              }
+            } else if (isFatal || Math.random() < NONFATAL_TAKEHIT_CHANCE) {
+              playSfx(
+                sounds[enemy.takeHitSound] || sounds.takeHit
+              );
+            }
+
             enemy.hurtTime = 0.6;
             enemy.vx += arrow.facing * 220;
             world.shake = 0.06;
@@ -2127,6 +2384,8 @@ function updateBotAI(bot, dt) {
     world.gameOver = true;
     world.paused = true;
 
+    if (currentMatchMusic) currentMatchMusic.volume = 0.12;
+
     gameOverOverlay.classList.remove("hidden");
     gameOverModal.classList.remove("hidden");
 
@@ -2164,8 +2423,8 @@ function updateBotAI(bot, dt) {
             <li><span>Inimigos derrotados:</span> <strong>${state.kills || 0}</strong></li>
             <li><span>Poções usadas:</span> <strong>${state.potionsUsed || 0}</strong></li>
             <li><span>Orbes coletadas:</span> <strong>${state.orbsCollected || 0}</strong></li>
-            <li><span>Nível do Arco:</span> <strong>Nv. ${state.player ? state.player.bow : 1}</strong></li>
-            <li><span>Nível da Armadura:</span> <strong>Nv. ${state.player ? state.player.armor : 1}</strong></li>
+            <li><span>Nível do Arco:</span> <strong> ${state.player ? state.player.bow : 1}</strong></li>
+            <li><span>Nível da Armadura:</span> <strong> ${state.player ? state.player.armor : 1}</strong></li>
           </ul>
         `;
       }
@@ -2178,7 +2437,8 @@ function updateBotAI(bot, dt) {
     }
   }
  
-  
+  let introTime = 0;
+  let introActive = true;
   let last = performance.now();
   function loop(now) {
     const dt = Math.min(0.033, (now - last) / 1000);
@@ -2192,7 +2452,8 @@ function updateBotAI(bot, dt) {
     keys[event.code] = true;
     if (event.code === "KeyJ" || event.code === "ControlLeft") attack();
     if (event.code === "KeyI" || event.code === "Escape") toggleInventory();
-    if (event.code === "Digit1") usePotion();
+    if (event.code === "Digit1") 
+      usePotion();
     if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Space"].indexOf(event.code) >= 0) event.preventDefault();
   });
  
@@ -2213,6 +2474,9 @@ function updateBotAI(bot, dt) {
     startScreen.classList.remove("hidden");
 
     document.body.classList.remove("duel-mode");
+
+    stopMatchMusic();
+    resumeMenuMusic();
 }
  
   canvas.addEventListener("pointerdown", attack);
@@ -2221,16 +2485,51 @@ function updateBotAI(bot, dt) {
   ui.upgradeBow.addEventListener("click", function () { tryUpgrade("bow"); });
   ui.upgradeArmor.addEventListener("click", function () { tryUpgrade("armor"); });
   ui.closeInventory.addEventListener("click", function () { toggleInventory(false); });
-  ui.startGame.addEventListener("click", function () { resetGame("survival"); });
-  ui.duelMode.addEventListener("click", function () { resetGame("duel"); });
-  ui.restartGame.addEventListener("click", function () { resetGame(world.mode); });
-  ui.backToMenu.addEventListener("click", function () {
-  world.running = false;
-  world.paused = true;
-  world.gameOver = false;
-  gameOverOverlay.classList.add("hidden");
-  startScreen.classList.remove("hidden"); // Exibe a tela inicial/menu
+  ui.startGame.addEventListener("click", function () {
+    triggerSceneTransition({
+      onBlackout: () => resetGame("survival")
+    });
   });
+
+  ui.duelMode.addEventListener("click", function () {
+    triggerSceneTransition({
+      onBlackout: () => resetGame("duel")
+    });
+  });
+  ui.backToMenu.addEventListener("click", function () {
+  triggerSceneTransition({
+    onBlackout: () => {
+      world.running = false;
+      world.paused = true;
+      world.gameOver = false;
+      gameOverOverlay.classList.add("hidden");
+      startScreen.classList.remove("hidden");
+      stopMatchMusic();
+      resumeMenuMusic();
+    }
+  });
+});
+
+// Restart no Game Over
+ui.restartGame.addEventListener("click", function () {
+  triggerSceneTransition({
+    onBlackout: () => resetGame(world.mode)
+  });
+
+});
+
+  function startIntro() {
+    if (!menuMusicStarted) {
+        menuMusicStarted = true;
+        startMenuIntro();
+    }
+
+    window.removeEventListener("pointerdown", startIntro);
+    window.removeEventListener("keydown", startIntro);
+}
+
+  window.addEventListener("pointerdown", startIntro);
+  window.addEventListener("keydown", startIntro);
   
   updateInventory();
   draw();
