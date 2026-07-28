@@ -9,6 +9,7 @@
   <body>
     <main class="game-shell">
       <canvas id="game" width="1280" height="720" aria-label="Endless Dungeon"></canvas>
+      <div id="screenTransitionOverlay" class="transition-overlay hidden"></div>
 
       <section id="inventory" class="overlay hidden" aria-label="Inventario">
         <div class="panel">
@@ -74,7 +75,15 @@
         </div>
       </section>
 
-      <section id="startScreen" class="overlay">
+      <!-- TELA DE INTRODUÇÃO -->
+      <section id="introScreen" class="overlay">
+        <div id="fadeScreen">
+          <p id="fadePrompt">Aperte qualquer botão para iniciar o jogo</p>
+        </div>
+      </section>
+
+      <!-- MENU PRINCIPAL -->
+      <section id="startScreen" class="overlay hidden">
         <div class="title-panel menu-panel">
           <h1>Endless Dungeon</h1>
           <p>Escolha um modo de jogo para começar.</p>
@@ -82,21 +91,47 @@
           <div class="mode-buttons">
             <button id="startGame" type="button" class="mode-btn">
               <span class="mode-icon" aria-hidden="true">
-              <img src="src/assets/survival_mode_icon.png" alt="" width="40" height="40" style="vertical-align: middle;">
+                <img src="src/assets/survival_mode_icon.png"
+                    alt=""
+                    width="40"
+                    height="40"
+                    style="vertical-align: middle;">
               </span>
               <span class="mode-title">Modo Sobrevivencia</span>
-              <span class="mode-desc">Enfrente hordas infinitas de monstros, colete orbes e sobreviva o maximo que puder.</span>
+              <span class="mode-desc">
+                Enfrente hordas infinitas de monstros, colete orbes e sobreviva o maximo que puder.
+              </span>
             </button>
 
             <button id="duelMode" type="button" class="mode-btn">
               <span class="mode-badge">Beta</span>
+
               <span class="mode-icon" aria-hidden="true">
-              <img src="src/assets/duel_mode_icon.png" alt="" width="40" height="40" style="vertical-align: middle;">
+                <img src="src/assets/duel_mode_icon.png"
+                    alt=""
+                    width="40"
+                    height="40"
+                    style="vertical-align: middle;">
               </span>
+
               <span class="mode-title">Modo Duelo</span>
-              <span class="mode-desc">Enfrente um guerreiro em um duelo mortal. Sem upgrades, apenas 3 frascos de vida.</span>
+
+              <span class="mode-desc">
+                Enfrente um guerreiro em um duelo mortal. Sem upgrades, apenas 3 frascos de vida.
+              </span>
             </button>
           </div>
+        </div>
+        <div class="audioOptions">
+          <label>
+              <input type="checkbox" id="musicToggle" checked>
+              Música
+          </label>
+
+          <label>
+              <input type="checkbox" id="sfxToggle" checked>
+              Efeitos Sonoros
+          </label>
         </div>
       </section>
 
