@@ -11,6 +11,7 @@
 
 * {
   box-sizing: border-box;
+  font-family: "Times New Roman", Times, serif;
 }
 
 html,
@@ -21,7 +22,7 @@ body {
   overflow: hidden;
   background: var(--bg);
   color: var(--ink);
-  font-family: "Segoe UI", Arial, sans-serif;
+  font-family: "Times New Roman", Times, serif;
 }
 
 button {
@@ -378,4 +379,74 @@ body.duel-mode #buyPotion {
 
 .btn.secondary:hover {
   background: #4a4a4a;
+}
+
+#fadeScreen {
+    position: absolute;
+    inset: 0;
+    background: black;
+    pointer-events: auto;
+    opacity: 1;
+    transition: opacity 3s ease;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#fadeScreen.fade-out {
+    opacity: 0;
+    pointer-events: none;
+}
+
+#fadePrompt {
+    margin: 0;
+    color: var(--ink);
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 22px;
+    letter-spacing: 1px;
+    text-shadow: 0 3px 12px rgba(0, 0, 0, 0.6);
+    animation: fadePromptPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes fadePromptPulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+}
+
+.transition-overlay {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  z-index: 10000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.transition-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.audioOptions {
+    position: absolute;
+
+    bottom: 30px;
+    left: 30px;
+
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    color: #f4efe6;
+    font-size: 16px;
+
+    background: rgba(0, 0, 0, 0.5);
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.15);
+    cursor: pointer;
+    color: #f4efe6;
+    font-family: Georgia, "Times New Roman", serif;
 }
