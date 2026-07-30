@@ -3,26 +3,43 @@
 
 
   const sounds = {
-    run: new Audio("src/assets/sfx/run.wav"),
-    takeHit: new Audio("src/assets/sfx/takeHit.wav"),
-    jump: new Audio("src/assets/sfx/jump.wav"),
-    heal: new Audio("src/assets/sfx/heal.wav"),
-    death: new Audio("src/assets/sfx/death.wav"),
+    run: new Audio("src/assets/sfx/run.ogg"),
+    takeHit: new Audio("src/assets/sfx/takeHit.ogg"),
+    jump: new Audio("src/assets/sfx/jump.ogg"),
+    heal: new Audio("src/assets/sfx/heal.ogg"),
+    death: new Audio("src/assets/sfx/death.ogg"),
     attack: new Audio("src/assets/sfx/shoot.mp3"),
-    mushroom_takeHit: new Audio("src/assets/sfx/mushroom_hurt.wav"),
-    weasel_takeHit: new Audio("src/assets/sfx/weasel_hurt.wav"),
+    mushroom_takeHit: new Audio("src/assets/sfx/mushroom_hurt.ogg"),
+    weasel_takeHit: new Audio("src/assets/sfx/weasel_hurt.ogg"),
   }
 
   let sfxEnabled = true;
+  // Quantidade máxima de execuções simultâneas por som
+  const POOL_SIZE = 8; 
+  const audioPools = new Map();
 
   function playSfx(sound) {
-    console.log(sound);
     if (!sfxEnabled) return;
 
-    const s = sound.cloneNode();
+    const key = sound.src;
+
+    // Inicializa o pool para este som específico se ainda não existir
+    if (!audioPools.has(key)) {
+      const pool = Array.from({ length: POOL_SIZE }, () => sound.cloneNode());
+      audioPools.set(key, { pool, index: 0 });
+    }
+
+    const audioData = audioPools.get(key);
+    
+    // Seleciona o próximo canal disponível no ciclo
+    const s = audioData.pool[audioData.index];
+    audioData.index = (audioData.index + 1) % POOL_SIZE;
+
+    // Reinicia o tempo para permitir sobreposição/disparos rápidos
+    s.currentTime = 0;
     s.volume = sound.volume;
     s.play().catch(() => {});
-}
+  }
 
   sounds.run.volume = 0.3;
   sounds.takeHit.volume = 0.7;
@@ -144,7 +161,7 @@ function triggerSceneTransition(options) {
       overlay.classList.remove("active");
 
       const newAudio = currentMatchMusic || (menuMusicStarted ? menuMusic : null);
-      const targetVolume = world.running ? 0.2 : 0.5; // Volumes base do seu jogo
+      const targetVolume = world.running ? 0.2 : 0.5; // Volumes base do jogo
       const fadeInStart = performance.now();
 
       if (newAudio) newAudio.volume = 0;
@@ -175,7 +192,6 @@ function triggerSceneTransition(options) {
     background: new Image()
   };
  
-  sprites.player.src = "src/assets/GandalfHardcore Archer/standard_skin/";
   sprites.arrow.src = "src/assets/GandalfHardcore Archer/arrow.png";
   sprites.background.src = "src/assets/Background by GPT 5.5.png";
  
@@ -209,27 +225,35 @@ sfxToggle.addEventListener("change", () => {
 });
   const DEBUG = false;
 
-//function playSound(sound) {
-//    const s = sound.cloneNode();
-//    s.volume = sound.volume;
-//    s.play().catch(() => {});
-//}
  
-function loadEntityAnimation(path,frames){
+// Agora cada animação é UM spritesheet (uma imagem só, com os frames lado a
+// lado na horizontal) em vez de um arquivo separado por frame. `path` é o
+// mesmo caminho base de antes (ex: ".../standard_skin/Run"), só que agora
+// aponta direto para "Run.png". `frames` continua sendo a quantidade de
+// quadros da animação, usada para fatiar o spritesheet em partes iguais.
+function loadEntityAnimation(path, frames){
 
-    const animation = [];
+    const sheet = {
+        image: new Image(),
+        frameCount: frames,
+        frameWidth: 0,
+        frameHeight: 0,
+        ready: false
+    };
 
-    for(let i=1;i<=frames;i++){
+    // largura/altura de cada frame só são conhecidas depois que a imagem
+    // carrega, então calculamos e guardamos no próprio objeto assim que o
+    // onload dispara — o desenho (drawPlayer/drawEnemy) espera `ready`
+    // ficar true antes de tentar recortar um frame.
+    sheet.image.onload = () => {
+        sheet.frameWidth = sheet.image.naturalWidth / frames;
+        sheet.frameHeight = sheet.image.naturalHeight;
+        sheet.ready = true;
+    };
 
-        const image = new Image();
+    sheet.image.src = `${path}.png`;
 
-        image.src = `${path}/image_${i}.png`;
-
-        animation.push(image);
-
-    }
-
-    return animation;
+    return sheet;
 
 }
 
@@ -562,7 +586,7 @@ const enemyTypes = {
     jump:    null
 };
 
-  // Parametros que definem a "personalidade" de combate do bot
+  // Parametros que definem o combate do bot
   const BOT_AI = {
     idealMin: 260,        // muito perto: recua mantendo a mira
     idealMax: 520,        // muito longe: avanca
@@ -1059,7 +1083,7 @@ function chooseEnemyType(){
     player.attackCooldown = 0.42;
     player.attackTime = 0.40;
  
-    player.animation = "Attack";
+    player.animation = "attack";
  
     player.frame = 0;
     player.frameTimer = 0;
@@ -1135,7 +1159,7 @@ function chooseEnemyType(){
 
     if (player.hp <= 0) {
         playSfx(sounds.death);
-        console.log("PLAYER MORREU");
+        //console.log("PLAYER MORREU");
         player.hp = 0;
         player.dead = true;
         player.vx = 0;
@@ -1150,7 +1174,6 @@ function chooseEnemyType(){
     if (!player || player.potions <= 0 || player.hp >= player.maxHp) return;
     player.potions -= 1;
     player.hp = Math.min(player.maxHp, player.hp + 55);
-    playSfx(sounds.heal);
     state.potionsUsed += 1;
     playSfx(sounds.heal);
     addParticles(player.x + player.w / 2, player.y + 20, "#75d16f", 16);
@@ -1344,7 +1367,7 @@ function chooseEnemyType(){
     if (player.frameTimer > frameDuration) {
         player.frame++;
 
-        const maxFrames = playerSprites[player.animation].length;
+        const maxFrames = playerSprites[player.animation].frameCount;
 
         if (player.frame >= maxFrames) {
         if (player.animation === "death" || player.animation === "takeHit") {
@@ -1581,7 +1604,7 @@ function updateBotAI(bot, dt) {
     if (bot.frameTimer > frameDuration) {
       bot.frame++;
 
-      const maxFrames = bot.sprites[bot.animation].length;
+      const maxFrames = bot.sprites[bot.animation].frameCount;
 
       if (bot.frame >= maxFrames) {
         if (bot.animation === "death" || bot.animation === "takeHit") {
@@ -1856,7 +1879,7 @@ function updateBotAI(bot, dt) {
  
               enemy.sprites[
                   enemy.animation
-              ].length;
+              ].frameCount;
  
  
               if(
@@ -1977,7 +2000,7 @@ function updateBotAI(bot, dt) {
     }
 
     const player = state.player;
-    const NONFATAL_TAKEHIT_CHANCE = 0.1; // chance em hits não fatais de inimigos comuns
+    const NONFATAL_TAKEHIT_CHANCE = 0.1; // chance de emitir sfx take_hit em hits não fatais nos inimigos
  
     for (let i = state.arrows.length - 1; i >= 0; i -= 1) {
       const arrow = state.arrows[i];
@@ -2131,18 +2154,23 @@ function updateBotAI(bot, dt) {
  
 }
  
-    function drawPlayer(player) {
-        const sprite = playerSprites[player.animation][player.frame];
-        if (!sprite) return;
+  function drawPlayer(player) {
+      const anim = playerSprites[player.animation];
+      // Proteção: spritesheet ainda não carregou, ou o frame pedido não existe
+      if (!anim || !anim.ready || player.frame >= anim.frameCount) return;
 
-        ctx.save();
-        if (player.hurtTime > 0 && Math.floor(player.hurtTime * 24) % 2 === 0) ctx.globalAlpha = 0.55;
-        ctx.translate(player.x + player.w / 2, player.y + player.h);
-        ctx.scale(player.facing, 1);
-        const drawSize = 96;
-        ctx.drawImage(sprite, -drawSize / 2, -drawSize, drawSize, drawSize);
-        ctx.restore();
-    }
+      ctx.save();
+      if (player.hurtTime > 0 && Math.floor(player.hurtTime * 24) % 2 === 0) ctx.globalAlpha = 0.55;
+      ctx.translate(player.x + player.w / 2, player.y + player.h);
+      ctx.scale(player.facing, 1);
+      const drawSize = 96;
+      ctx.drawImage(
+          anim.image,
+          anim.frameWidth * player.frame, 0, anim.frameWidth, anim.frameHeight, // recorte no spritesheet
+          -drawSize / 2, -drawSize, drawSize, drawSize                           // destino no canvas
+      );
+      ctx.restore();
+  }
  
   function drawArrows() {
     for (const arrow of state.arrows) {
@@ -2163,18 +2191,13 @@ function updateBotAI(bot, dt) {
           ];
 
 
-          if(!animation){
+          // Proteção: sem spritesheet definido para essa animação, ainda não
+          // carregou, ou o frame pedido não existe
+          if(!animation || !animation.ready || enemy.frame >= animation.frameCount){
 
               return;
 
           }
-
-
-          const sprite =
-
-          animation[
-              enemy.frame
-          ];
  
  
       const size = enemy.drawSize;
@@ -2234,7 +2257,12 @@ function updateBotAI(bot, dt) {
  
       ctx.drawImage(
  
-          sprite,
+          animation.image,
+
+          animation.frameWidth * enemy.frame, // x do recorte no spritesheet
+          0,                                   // y do recorte no spritesheet
+          animation.frameWidth,
+          animation.frameHeight,
  
           -size/2,
  
@@ -2412,7 +2440,7 @@ function updateBotAI(bot, dt) {
     if (statsEl) {
       if (world.mode === "duel") {
         statsEl.innerHTML = victory
-          ? `<p>Você derrotou o bot em <strong>${min}:${sec}</strong>.</p>`
+          ? `<p>Você derrotou o inimigo em <strong>${min}:${sec}</strong>.</p>`
           : `<p>O guerreiro inimigo venceu o duelo em <strong>${min}:${sec}</strong>.</p>`;
       } else {
         // MODO SOBREVIVÊNCIA
@@ -2440,10 +2468,27 @@ function updateBotAI(bot, dt) {
   let introTime = 0;
   let introActive = true;
   let last = performance.now();
+
+  // Passo de física fixo: garante que gravidade/pulo/colisões se comportem
+  // de forma IDENTICA em qualquer maquina, independente do FPS real.
+  // (Usar o dt variavel do frame direto na integracao da gravidade fazia o
+  // pulo perder altura em maquinas com FPS mais baixo.)
+  const FIXED_DT = 1 / 90;
+  let physicsAccumulator = 0;
+
   function loop(now) {
-    const dt = Math.min(0.033, (now - last) / 1000);
+    // Limite alto (0.1s) so para evitar "espiral da morte" caso a aba fique
+    // em segundo plano por um tempo e volte com um salto grande de tempo.
+    const frameTime = Math.min(0.1, (now - last) / 1000);
     last = now;
-    update(dt);
+
+    physicsAccumulator += frameTime;
+
+    while (physicsAccumulator >= FIXED_DT) {
+      update(FIXED_DT);
+      physicsAccumulator -= FIXED_DT;
+    }
+
     draw();
     requestAnimationFrame(loop);
   }
