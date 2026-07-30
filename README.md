@@ -5,8 +5,8 @@ Endless Dungeon é um RPG Arena 2D em Pixel Art desenvolvido em JavaScript e Ele
 
 ## Como rodar
 
-- Abra `Endless Dungeon.exe` localizado na pasta 'dist'.
-- Alternativa: abra `Endless Dungeon.html` no navegador.
+- Faça download do 'Endless Dungeon.exe' na versão mais recente da aba de 'Releases' do repositório e execute-o.
+- Alternativa: Baixe todos os arquivos do repositório dentro de uma pasta na sua máquina e abra 'Endless Dungeon.html' no navegador de sua preferência.
 
 
 ## Controles
