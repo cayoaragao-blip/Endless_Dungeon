@@ -1861,11 +1861,11 @@
  
   function drawDrops() {
     for (const orb of state.orbs) {
-      ctx.fillStyle = "rgba(232,66,66,0.28)";
+      ctx.fillStyle = "rgba(132, 232, 66, 0.28)";
       ctx.beginPath();
       ctx.arc(orb.x, orb.y, 13, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = "#e84242";
+      ctx.fillStyle = "#32CD32";
       ctx.beginPath();
       ctx.arc(orb.x, orb.y, 6, 0, Math.PI * 2);
       ctx.fill();
