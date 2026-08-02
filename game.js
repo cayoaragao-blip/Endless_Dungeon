@@ -10,6 +10,8 @@
     attack: new Audio("src/assets/sfx/shoot.mp3"),
     mushroom_takeHit: new Audio("src/assets/sfx/mushroom_hurt.ogg"),
     weasel_takeHit: new Audio("src/assets/sfx/weasel_hurt.ogg"),
+    goblin_takeHit: new Audio("src/assets/sfx/goblin_hurt.ogg"),
+    flying_eye_takeHit: new Audio("src/assets/sfx/flying_eye_hurt.ogg"),
   };
 
   let sfxEnabled = true;
@@ -42,6 +44,8 @@
   sounds.attack.volume = 0.7;
   sounds.mushroom_takeHit.volume = 0.3;
   sounds.weasel_takeHit.volume = 0.3;
+  sounds.goblin_takeHit.volume = 0.3;
+  sounds.flying_eye_takeHit.volume = 0.3;
 
   const menuMusic = new Audio("src/assets/sfx/menu_theme.mp3");
   menuMusic.loop = true;
@@ -246,7 +250,7 @@
       },
 
       goblin:{
-          takeHitSound:"",
+          takeHitSound:"goblin_takeHit",
           stats:{ hp:35, damage:25, speed:135, value:1, attackCooldown:0.60, jumpCooldown:0.70, attackReach:30 },
           size:{ width:38, height:48, spriteSize:64, drawSize:256, drawOffsetY:83 },
           spawn:{
@@ -265,7 +269,7 @@
       },
 
       flying_eye:{
-          takeHitSound:"",
+          takeHitSound:"flying_eye_takeHit",
           flying:true,
           stats:{ hp:40, damage:20, speed:95, value:3, attackCooldown:0.78, attackReach:34 },
           size:{ width:38, height:48, spriteSize:64, drawSize:256, drawOffsetY:100 },
