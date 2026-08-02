@@ -11,67 +11,10 @@
       <canvas id="game" width="1280" height="720" aria-label="Endless Dungeon"></canvas>
       <div id="screenTransitionOverlay" class="transition-overlay hidden"></div>
 
-      <section id="inventory" class="overlay hidden" aria-label="Inventario">
-        <div class="panel">
-          <header class="panel-header">
-            <div>
-              <h1>Inventario</h1>
-              <p>Orbes vermelhos fortalecem seu arco, armadura e podem ser usados para comprar frascos de vida.</p>
-              <p id="duelNotice" class="duel-notice hidden">Modo Duelo: upgrades e compra de frascos estao desativados. Voce comeca com 3 frascos fixos.</p>
-            </div>
-            <button id="closeInventory" type="button" title="Fechar">X</button>
-          </header>
-
-          <div class="inventory-grid">
-            <article class="item-slot selected" data-action="potion">
-
-              <span class="item-icon potion"></span>
-
-              <div>
-                  <strong>Frasco de vida</strong>
-                  <small id="potionCount">
-                      0 disponiveis
-                  </small>
-              </div>
-
-              <div class="potion-buttons">
-
-                  <button id="usePotion"
-                          type="button">
-                      Usar
-                  </button>
-
-                  <button id="buyPotion"
-                          type="button">
-                      Comprar (20)
-                  </button>
-
-              </div>
-
-            </article>
-
-            <article class="upgrade-box">
-              <span class="item-icon bow"></span>
-              <div>
-                <strong>Arco</strong>
-                <small id="bowLevel">Nivel 1</small>
-              </div>
-              <button id="upgradeBow" type="button">Aprimorar</button>
-            </article>
-
-            <article class="upgrade-box">
-              <span class="item-icon armor"></span>
-              <div>
-                <strong>Armadura</strong>
-                <small id="armorLevel">Nivel 1</small>
-              </div>
-              <button id="upgradeArmor" type="button">Aprimorar</button>
-            </article>
-          </div>
-
-          <footer class="panel-footer">
-            <span id="orbCount">0 orbes</span>
-          </footer>
+      <section id="pauseScreen" class="overlay hidden" aria-label="Jogo pausado">
+        <div class="title-panel pause-panel">
+          <h1>Jogo pausado</h1>
+          <p>Pressione ESC ou P para continuar</p>
         </div>
       </section>
 
@@ -138,7 +81,6 @@
       <section id="gameOverOverlay" class="overlay hidden">
         <div id="gameOverModal" class="modal hidden">
           <div class="modal-content">
-            <h2 id="gameOverTitle">Você morreu</h2>
             
             <div id="finalStats" class="stats-container">
               <!-- As estatísticas serão inseridas dinamicamente pelo JavaScript -->
